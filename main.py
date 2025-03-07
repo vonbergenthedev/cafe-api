@@ -2,6 +2,7 @@ import random
 
 from flask import Flask, jsonify, render_template, request
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.exc import StatementError, NoResultFound
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, load_only
 from sqlalchemy import Integer, String, Boolean, func
 
@@ -46,13 +47,13 @@ with app.app_context():
     db.create_all()
 
 
-@app.route("/")
+@app.route('/')
 def home():
-    return render_template("index.html")
+    return render_template('index.html')
 
 
 # HTTP GET - Read Record
-@app.route("/random", methods=["GET"])
+@app.route('/random')
 def get_random_cafe():
     with app.app_context():
         all_cafes = db.session.execute(db.select(Cafe)).scalars().all()
@@ -61,7 +62,7 @@ def get_random_cafe():
         return jsonify(cafe=random_cafe.to_dict())
 
 
-@app.route("/all", methods=["GET"])
+@app.route('/all', )
 def get_all_cafes():
     with app.app_context():
         all_cafes = db.session.execute(db.select(Cafe)).scalars().all()
@@ -78,13 +79,51 @@ def find_cafe():
         if location_selection_cafes:
             return jsonify(cafes=[cafe.to_dict() for cafe in location_selection_cafes])
 
-    return jsonify(error={'Not Found': "Sorry, we don't have a cafe at that location."})
+    return jsonify(error={'Not Found': 'Sorry, we don\'t have a cafe at that location.'})
 
 
 # HTTP POST - Create Record
+@app.route('/add', methods=['POST'])
+def add_cafe():
+    with app.app_context():
+        new_cafe = Cafe(
+            name=request.args.get('name'),
+            map_url=request.args.get('map_url'),
+            img_url=request.args.get('img_url'),
+            location=request.args.get('location'),
+            seats=request.args.get('seats'),
+            has_toilet=bool(request.args.get('has_toilet')),
+            has_wifi=bool(request.args.get('has_wifi')),
+            has_sockets=bool(request.args.get('has_sockets')),
+            can_take_calls=bool(request.args.get('can_take_calls')),
+            coffee_price=request.args.get('coffee_price'),
+
+        )
+
+        db.session.add(new_cafe)
+
+        try:
+            db.session.commit()
+        except StatementError as e:
+            return jsonify(response={'error': f'Entry not structured correctly: {e}'})
+
+        return jsonify(response={'success': 'Successfully added the new cafe.'})
 
 
 # HTTP PUT/PATCH - Update Record
+@app.route('/update-price/<cafe_id>', methods=['PATCH'])
+def update_cafe_price(cafe_id):
+    cafe_to_update = db.session.get(Cafe, cafe_id)
+
+    if cafe_to_update:
+        cafe_to_update.coffee_price = f'£{request.args.get('coffee_price')}'
+        db.session.commit()
+
+        return jsonify(response='Successfully updated the price.')
+
+    else:
+        return jsonify(error={'Not Found': 'Sorry a cafe with that id was not found in the database.'}), 404
+
 
 # HTTP DELETE - Delete Record
 
