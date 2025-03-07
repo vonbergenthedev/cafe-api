@@ -5,19 +5,6 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, load_only
 from sqlalchemy import Integer, String, Boolean, func
 
-'''
-Install the required packages first: 
-Open the Terminal in PyCharm (bottom left). 
-
-On Windows type:
-python -m pip install -r requirements.txt
-
-On MacOS type:
-pip3 install -r requirements.txt
-
-This will install the packages from requirements.txt for this project.
-'''
-
 app = Flask(__name__)
 
 
@@ -48,12 +35,10 @@ class Cafe(db.Model):
 
     def to_dict(self):
         dictionary = {}
-        # Loop through each column in the data record
+
         for column in self.__table__.columns:
-            # Create a new dictionary entry;
-            # where the key is the name of the column
-            # and the value is the value of the column
             dictionary[column.name] = getattr(self, column.name)
+
         return dictionary
 
 
@@ -70,8 +55,7 @@ def home():
 @app.route("/random", methods=["GET"])
 def get_random_cafe():
     with app.app_context():
-        result = db.session.execute(db.select(Cafe))
-        all_cafes = result.scalars().all()
+        all_cafes = db.session.execute(db.select(Cafe)).scalars().all()
         random_cafe = random.choice(all_cafes)
 
         return jsonify(cafe=random_cafe.to_dict())
@@ -80,10 +64,21 @@ def get_random_cafe():
 @app.route("/all", methods=["GET"])
 def get_all_cafes():
     with app.app_context():
-        result = db.session.execute(db.select(Cafe))
-        all_cafes = result.scalars().all()
+        all_cafes = db.session.execute(db.select(Cafe)).scalars().all()
 
         return jsonify(cafes=[cafe.to_dict() for cafe in all_cafes])
+
+
+@app.route('/search')
+def find_cafe():
+    with app.app_context():
+        location_selection_cafes = db.session.execute(
+            db.select(Cafe).where(Cafe.location == request.args.get('loc')).order_by(Cafe.id)).scalars().all()
+
+        if location_selection_cafes:
+            return jsonify(cafes=[cafe.to_dict() for cafe in location_selection_cafes])
+
+    return jsonify(error={'Not Found': "Sorry, we don't have a cafe at that location."})
 
 
 # HTTP POST - Create Record
